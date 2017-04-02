@@ -60,7 +60,7 @@ end
 % Print the error rate
 fprintf('Full dataset Error rate: %.1f%%\n', sum(Error)./sum(CV.TestSize)*100);
 
-
+% Full dataset Error rate: 70.6%
 %% FWI - Naive Bayes classification
 
 X= FWI;
@@ -103,8 +103,7 @@ end
 
 % Print the error rate
 fprintf('FWI Error rate: %.1f%%\n', sum(Error)./sum(CV.TestSize)*100);
-
-
+%FWI Error rate: 63.2%
 %% STM - Naive Bayes classification
 
 X= STM;
@@ -147,7 +146,7 @@ end
 
 % Print the error rate
 fprintf('STM Error rate: %.1f%%\n', sum(Error)./sum(CV.TestSize)*100);
-
+%STM Error rate: 64.9%
 
 %% STFWI - Naive Bayes classification
 
@@ -191,8 +190,7 @@ end
 
 % Print the error rate
 fprintf('STFWI Error rate: %.1f%%\n', sum(Error)./sum(CV.TestSize)*100);
-
-
+%STFWI Error rate: 62.8%
 %% MET - Naive Bayes classification
 
 X= MET;
@@ -236,4 +234,4 @@ end
 % Print the error rate
 fprintf('MET Error rate: %.1f%%\n', sum(Error)./sum(CV.TestSize)*100);
 
-
+%MET Error rate: 61.7%

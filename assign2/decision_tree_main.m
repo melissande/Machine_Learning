@@ -50,7 +50,7 @@ for k = 1:K
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
         'names', attributeNames_M2, ...
-        'prune', 'on', ...
+        'prune', 'off', ...
         'minparent', 10);
 
     % Compute classification error
@@ -70,7 +70,28 @@ legend('Training error', 'Test error');
 
 [min_val,p_fin]=min(sum(Error_test)./sum(CV.TestSize)*100);
 fprintf('Full Datset - Error: %.1f%%  and Prunning level: %d \n',min_val,p_fin-1 );
+% Create holdout partition to display a confusion matrix
+CV = cvpartition(classNames(y+1), 'holdout',0.5);
 
+
+X_train = X(CV.training, :);
+y_train = y(CV.training);
+X_test = X(CV.test, :);
+y_test = y(CV.test);
+
+
+
+T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_M2, ...
+        'prune', 'off', ...
+        'minparent', 10);
+    figure;
+    view(T)
+    
+%     Full Datset - Error: 50.1%  and Prunning level: 12
 %% Decisions Tree -  FWI
 X=FWI;
 % Number of folds for crossvalidation
@@ -102,7 +123,7 @@ for k = 1:K
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
         'names', attributeNames_fwi, ...
-        'prune', 'on', ...
+        'prune', 'off', ...
         'minparent', 10);
 
     % Compute classification error
@@ -122,7 +143,27 @@ legend('Training error', 'Test error');
 
 [min_val,p_fin]=min(sum(Error_test)./sum(CV.TestSize)*100);
 fprintf('FWI - Error: %.1f%%   and Prunning level: %d \n',min_val,p_fin-1  );
+% Create holdout partition to display a confusion matrix
+CV = cvpartition(classNames(y+1), 'holdout',0.5);
 
+
+X_train = X(CV.training, :);
+y_train = y(CV.training);
+X_test = X(CV.test, :);
+y_test = y(CV.test);
+
+
+
+T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_fwi, ...
+        'prune', 'off', ...
+        'minparent', 10);
+    figure;
+    view(T)
+%     FWI - Error: 50.1%   and Prunning level: 10 
 
 %% Decisions Tree -  STM
 X=STM;
@@ -134,7 +175,7 @@ K = 20;
 CV = cvpartition(classNames(y+1), 'Kfold', K);
 
 % Pruning levels
-prune = 0:15;
+prune = 0:10;
 
 % Variable for classification error
 Error_train = nan(K,length(prune));
@@ -155,7 +196,7 @@ for k = 1:K
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
         'names', attributeNames_stm, ...
-        'prune', 'on', ...
+        'prune', 'off', ...
         'minparent', 10);
 
     % Compute classification error
@@ -175,6 +216,28 @@ legend('Training error', 'Test error');
 
 [min_val,p_fin]=min(sum(Error_test)./sum(CV.TestSize)*100);
 fprintf('STM - Error:%.1f%%   and Prunning level: %d \n',min_val,p_fin-1  );
+% Create holdout partition to display a confusion matrix
+CV = cvpartition(classNames(y+1), 'holdout',0.5);
+
+
+X_train = X(CV.training, :);
+y_train = y(CV.training);
+X_test = X(CV.test, :);
+y_test = y(CV.test);
+
+
+
+T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_stm, ...
+        'prune', 'off', ...
+        'minparent', 10);
+    figure;
+    view(T)
+    
+%    STM - Error:49.9%   and Prunning level: 9 
 
 %% Decisions Tree -  STFWI
 X=STFWI;
@@ -186,7 +249,7 @@ K = 20;
 CV = cvpartition(classNames(y+1), 'Kfold', K);
 
 % Pruning levels
-prune = 0:15;
+prune = 0:10;
 
 % Variable for classification error
 Error_train = nan(K,length(prune));
@@ -207,7 +270,7 @@ for k = 1:K
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
         'names', attributeNames_stfwi, ...
-        'prune', 'on', ...
+        'prune', 'off', ...
         'minparent', 10);
 
     % Compute classification error
@@ -227,7 +290,27 @@ legend('Training error', 'Test error');
 
 [min_val,p_fin]=min(sum(Error_test)./sum(CV.TestSize)*100);
 fprintf('STFWI - Error: %.1f%%   and Prunning level: %d \n',min_val,p_fin-1  );
+CV = cvpartition(classNames(y+1), 'holdout',0.5);
 
+
+X_train = X(CV.training, :);
+y_train = y(CV.training);
+X_test = X(CV.test, :);
+y_test = y(CV.test);
+
+
+
+T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_stm, ...
+        'prune', 'off', ...
+        'minparent', 10);
+    figure;
+    view(T)
+    
+%     STFWI - Error: 49.9%   and Prunning level: 10 
 %% Decisions Tree -  MET
 X=MET;
 % Number of folds for crossvalidation
@@ -259,7 +342,7 @@ for k = 1:K
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
         'names', attributeNames_met, ...
-        'prune', 'on', ...
+        'prune', 'off', ...
         'minparent', 10);
 
     % Compute classification error
@@ -279,3 +362,24 @@ legend('Training error', 'Test error');
 
 [min_val,p_fin]=min(sum(Error_test)./sum(CV.TestSize)*100);
 fprintf('MET - Error: %.1f%%  and Prunning level: %d \n',min_val,p_fin-1  );
+CV = cvpartition(classNames(y+1), 'holdout',0.5);
+
+
+X_train = X(CV.training, :);
+y_train = y(CV.training);
+X_test = X(CV.test, :);
+y_test = y(CV.test);
+
+
+
+T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_met, ...
+        'prune', 'off', ...
+        'minparent', 10);
+    figure;
+    view(T)
+    
+%     MET - Error: 49.3%  and Prunning level: 8 

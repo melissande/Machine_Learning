@@ -34,7 +34,7 @@ Distance = 'euclidean'; % Distance measure
 L = 40; % Maximum number of neighbors
 
 % Variable for classification error
-Error = nan(K,L);sum(CV.TestSize)
+Error = nan(K,L);
 
 
 
@@ -60,7 +60,7 @@ end
 
 
 mfig('Full dataset - Error rate');
-plot(sum(Error)/sum(CV.TestSize)*100);
+plot(sum(Error)./sum(CV.TestSize)*100);
 xlabel('Number of neighbors');
 ylabel('Classification error rate (%)');
 
@@ -83,7 +83,7 @@ mfig('Full dataset - Confusion matrix');
 confmatplot(classNames(y_test+1), classNames(y_test_est+1));
 
  fprintf('Full Datset - nb Neighbors %d \n',L_fin );
-
+%Full Datset - nb Neighbors 12 
 %% FWI - K neighbors classification
 
 X= FWI;
