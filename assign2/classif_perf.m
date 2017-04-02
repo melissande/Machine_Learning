@@ -25,9 +25,12 @@ X= M2_data;
 
 
 % K-fold crossvalidation out loop
-K1 = 10;
+K1 = 5;
 CV1 = cvpartition(y, 'Kfold', K1);
 
+
+% K-fold crossvalidation inner loop
+K2 = 20;
 
 % Parameters for naive Bayes classifier
 Distribution = 'mvmn';
@@ -39,7 +42,7 @@ prune=1:prune_max;
 
 % Parameters for K neighbor classifier
 Distance = 'euclidean'; % Distance measure
-Lmax = 40; % Maximum number of neighbors
+Lmax = 20; % Maximum number of neighbors
 
 % Variable for performance errors
 
@@ -83,9 +86,22 @@ for k1 = 1:K1 % For each crossvalidation fold
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
     
+    %INNER LOOP 
+     Error_dt=nan(prune_max,K2);
+     Error_knn=nan(Lmax,K2);
+     
+    CV2 = cvpartition(y_train, 'Kfold', K2);
+    for k2=1:K2
+    
+    % Extract training and test set
+    X_train2 = X(CV2.training(k2), :);
+    y_train2 = y(CV2.training(k2));
+    X_test2 = X(CV2.test(k2), :);
+    y_test2 = y(CV2.test(k2));
+    
     %%DECISION TREE
-    Error_dt=nan(prune_max,1);
-    T = classregtree(X_train, classNames(y_train+1), ...
+    
+    T = classregtree(X_train2, classNames(y_train2+1), ...
         'method', 'classification', ...
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
@@ -95,36 +111,52 @@ for k1 = 1:K1 % For each crossvalidation fold
 
     % Compute classification error
     for n = 1:prune_max % For each pruning level
-        Error_dt(n,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune(n))));
+        Error_dt(n,k2) = sum(~strcmp(classNames(y_test2+1), eval(T, X_test2, prune(n))));
     end    
-    [val_Min,prune_fin]=min(Error_dt);
-    dep_dt(k1,1)=prune_fin;
-  
-        
     
-      % Performance
-    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
-    perf_dt(k1,2) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
-    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
     
-    %KNN 
-    Error_knn=nan(Lmax,1);
+     %KNN 
+    
      for l = 1:Lmax % For each number of neighbors
         
         % Use knnclassify to find the l nearest neighbors
-        y_test_est = knnclassify(X_test, X_train, y_train, l, Distance);
+        y_test_est2 = knnclassify(X_test2, X_train2, y_train2, l, Distance);
         
         % Compute number of classification errors
-        Error_knn(l,1) = sum(y_test~=y_test_est); % Count the number of errors
+        Error_knn(l,k2) = sum(y_test2~=y_test_est2); % Count the number of errors
      end
-    [val_Min,L_fin]=min(Error_knn);
+   
+    end
+    
+    Error_dt_fin=sum(Error_dt*(CV2.TestSize').^(-1),2);
+    [val_Min,prune_fin]=min(Error_dt_fin);
+    dep_dt(k1,1)=prune_fin;
+    Error_knn_fin=sum(Error_knn*(CV2.TestSize').^(-1),2);
+    [val_Min,L_fin]=min(Error_knn_fin);
     neigh_knn(k1,1)=L_fin;
     
-    %performance
+      % Performance DT 
+   T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_M2, ...
+        'prune', 'on', ...
+        'minparent', 10);   
+      
+      
+    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
+    perf_dt(k1,2) = (sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
+    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
+    
+   
+    %performance KNN
+     y_test_est = knnclassify(X_test, X_train, y_train, L_fin, Distance);
+    
     perf_knn(k1,1) = sum(y_test~=y_test_est)/length(y_test); % Error
     perf_knn(k1,2) = (sum(y_test==y_test_est & y_test==0)/sum(y_test_est==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test_est==1)+...
@@ -143,23 +175,25 @@ for k1 = 1:K1 % For each crossvalidation fold
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
     
+    
+    
 end
 
-
+%%
 
 figure(1)
 subplot(1,3,1)
-plot(1:K1,perf_bayes(:,1),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,1),'r');
 hold on;
-plot(1:K1,perf_dt(:,1),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,1),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,1),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,1),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,1),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,1),'y');
 hold off;
 
 legend('Naive Bayes', 'DT','KNN','Largest Class')
@@ -169,42 +203,42 @@ title('Error')
 
 
 subplot(1,3,2)
-plot(1:K1,perf_bayes(:,2),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,2),'r');
 hold on;
-plot(1:K1,perf_dt(:,2),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,2),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,2),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,2),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,2),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,2),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
+
 xlabel('Folds')
 ylabel('Precision')
 title('Precision')
 
 
 subplot(1,3,3)
-plot(1:K1,perf_bayes(:,3),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,3),'r');
 hold on;
-plot(1:K1,perf_dt(:,3),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,3),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,3),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,3),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,3),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,3),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
+
 xlabel('Folds')
 ylabel('Recall')
 title('Recall')
@@ -213,14 +247,17 @@ title('Recall')
 %% FWI - Method comparison
 
 
+
 X= FWI;
 
 
 % K-fold crossvalidation out loop
-K1 = 10;
+K1 = 5;
 CV1 = cvpartition(y, 'Kfold', K1);
+
+
 % K-fold crossvalidation inner loop
-    K2 = 10;
+K2 = 20;
 
 % Parameters for naive Bayes classifier
 Distribution = 'mvmn';
@@ -232,7 +269,7 @@ prune=1:prune_max;
 
 % Parameters for K neighbor classifier
 Distance = 'euclidean'; % Distance measure
-Lmax = 40; % Maximum number of neighbors
+Lmax = 20; % Maximum number of neighbors
 
 % Variable for performance errors
 
@@ -264,8 +301,9 @@ for k1 = 1:K1 % For each crossvalidation fold
     
     % Predict model on test data    
     y_test_est = predict(NB, X_test);
-   
-   
+    
+  
+    
     % Performance
     perf_bayes(k1,1) = sum(y_test~=y_test_est)/length(y_test); % Error
     perf_bayes(k1,2) =(sum(y_test==y_test_est & y_test==0)/sum(y_test_est==0)+...
@@ -275,9 +313,22 @@ for k1 = 1:K1 % For each crossvalidation fold
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
     
+    %INNER LOOP 
+     Error_dt=nan(prune_max,K2);
+     Error_knn=nan(Lmax,K2);
+     
+    CV2 = cvpartition(y_train, 'Kfold', K2);
+    for k2=1:K2
+    
+    % Extract training and test set
+    X_train2 = X(CV2.training(k2), :);
+    y_train2 = y(CV2.training(k2));
+    X_test2 = X(CV2.test(k2), :);
+    y_test2 = y(CV2.test(k2));
+    
     %%DECISION TREE
-    Error_dt=nan(prune_max,1);
-    T = classregtree(X_train, classNames(y_train+1), ...
+    
+    T = classregtree(X_train2, classNames(y_train2+1), ...
         'method', 'classification', ...
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
@@ -287,36 +338,52 @@ for k1 = 1:K1 % For each crossvalidation fold
 
     % Compute classification error
     for n = 1:prune_max % For each pruning level
-        Error_dt(n,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune(n))));
+        Error_dt(n,k2) = sum(~strcmp(classNames(y_test2+1), eval(T, X_test2, prune(n))));
     end    
-    [val_Min,prune_fin]=min(Error_dt);
-    dep_dt(k1,1)=prune_fin;
-  
-        
     
-      % Performance
-    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
-    perf_dt(k1,2) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
-    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
     
-    %KNN 
-    Error_knn=nan(Lmax,1);
+     %KNN 
+    
      for l = 1:Lmax % For each number of neighbors
         
         % Use knnclassify to find the l nearest neighbors
-        y_test_est = knnclassify(X_test, X_train, y_train, l, Distance);
+        y_test_est2 = knnclassify(X_test2, X_train2, y_train2, l, Distance);
         
         % Compute number of classification errors
-        Error_knn(l,1) = sum(y_test~=y_test_est); % Count the number of errors
+        Error_knn(l,k2) = sum(y_test2~=y_test_est2); % Count the number of errors
      end
-    [val_Min,L_fin]=min(Error_knn);
+   
+    end
+    
+    Error_dt_fin=sum(Error_dt*(CV2.TestSize').^(-1),2);
+    [val_Min,prune_fin]=min(Error_dt_fin);
+    dep_dt(k1,1)=prune_fin;
+    Error_knn_fin=sum(Error_knn*(CV2.TestSize').^(-1),2);
+    [val_Min,L_fin]=min(Error_knn_fin);
     neigh_knn(k1,1)=L_fin;
     
-    %performance
+      % Performance DT 
+   T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_fwi, ...
+        'prune', 'on', ...
+        'minparent', 10);   
+      
+      
+    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
+    perf_dt(k1,2) = (sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
+    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
+    
+   
+    %performance KNN
+     y_test_est = knnclassify(X_test, X_train, y_train, L_fin, Distance);
+    
     perf_knn(k1,1) = sum(y_test~=y_test_est)/length(y_test); % Error
     perf_knn(k1,2) = (sum(y_test==y_test_est & y_test==0)/sum(y_test_est==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test_est==1)+...
@@ -324,6 +391,7 @@ for k1 = 1:K1 % For each crossvalidation fold
     perf_knn(k1,3) = (sum(y_test==y_test_est & y_test==0)/sum(y_test==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
+    
     %%Largest Class
     
     [larg_class,nb]=mode(y_train);
@@ -333,25 +401,27 @@ for k1 = 1:K1 % For each crossvalidation fold
     perf_largest_cl(k1,3) = (sum(y_test==y_test_est & y_test==0)/sum(y_test==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
-
+    
+    
+    
 end
+
 
 
 figure(2)
 subplot(1,3,1)
-plot(1:K1,perf_bayes(:,1),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,1),'r');
 hold on;
-plot(1:K1,perf_dt(:,1),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,1),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,1),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,1),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,1),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,1),'y');
 hold off;
-
 
 legend('Naive Bayes', 'DT','KNN','Largest Class')
 xlabel('Folds')
@@ -360,42 +430,42 @@ title('Error')
 
 
 subplot(1,3,2)
-plot(1:K1,perf_bayes(:,2),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,2),'r');
 hold on;
-plot(1:K1,perf_dt(:,2),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,2),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,2),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,2),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,2),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,2),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
+
 xlabel('Folds')
 ylabel('Precision')
 title('Precision')
 
 
 subplot(1,3,3)
-plot(1:K1,perf_bayes(:,3),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,3),'r');
 hold on;
-plot(1:K1,perf_dt(:,3),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,3),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,3),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,3),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,3),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,3),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
+
 xlabel('Folds')
 ylabel('Recall')
 title('Recall')
@@ -404,14 +474,17 @@ title('Recall')
 %% STM - Method comparison
 
 
+
 X= STM;
 
 
 % K-fold crossvalidation out loop
-K1 = 10;
+K1 = 5;
 CV1 = cvpartition(y, 'Kfold', K1);
+
+
 % K-fold crossvalidation inner loop
-    K2 = 10;
+K2 = 20;
 
 % Parameters for naive Bayes classifier
 Distribution = 'mvmn';
@@ -423,7 +496,7 @@ prune=1:prune_max;
 
 % Parameters for K neighbor classifier
 Distance = 'euclidean'; % Distance measure
-Lmax = 40; % Maximum number of neighbors
+Lmax = 20; % Maximum number of neighbors
 
 % Variable for performance errors
 
@@ -455,8 +528,9 @@ for k1 = 1:K1 % For each crossvalidation fold
     
     % Predict model on test data    
     y_test_est = predict(NB, X_test);
-   
-   
+    
+  
+    
     % Performance
     perf_bayes(k1,1) = sum(y_test~=y_test_est)/length(y_test); % Error
     perf_bayes(k1,2) =(sum(y_test==y_test_est & y_test==0)/sum(y_test_est==0)+...
@@ -466,9 +540,22 @@ for k1 = 1:K1 % For each crossvalidation fold
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
     
+    %INNER LOOP 
+     Error_dt=nan(prune_max,K2);
+     Error_knn=nan(Lmax,K2);
+     
+    CV2 = cvpartition(y_train, 'Kfold', K2);
+    for k2=1:K2
+    
+    % Extract training and test set
+    X_train2 = X(CV2.training(k2), :);
+    y_train2 = y(CV2.training(k2));
+    X_test2 = X(CV2.test(k2), :);
+    y_test2 = y(CV2.test(k2));
+    
     %%DECISION TREE
-    Error_dt=nan(prune_max,1);
-    T = classregtree(X_train, classNames(y_train+1), ...
+    
+    T = classregtree(X_train2, classNames(y_train2+1), ...
         'method', 'classification', ...
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
@@ -478,36 +565,52 @@ for k1 = 1:K1 % For each crossvalidation fold
 
     % Compute classification error
     for n = 1:prune_max % For each pruning level
-        Error_dt(n,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune(n))));
+        Error_dt(n,k2) = sum(~strcmp(classNames(y_test2+1), eval(T, X_test2, prune(n))));
     end    
-    [val_Min,prune_fin]=min(Error_dt);
-    dep_dt(k1,1)=prune_fin;
-  
-        
     
-      % Performance
-    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
-    perf_dt(k1,2) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
-    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
     
-    %KNN 
-    Error_knn=nan(Lmax,1);
+     %KNN 
+    
      for l = 1:Lmax % For each number of neighbors
         
         % Use knnclassify to find the l nearest neighbors
-        y_test_est = knnclassify(X_test, X_train, y_train, l, Distance);
+        y_test_est2 = knnclassify(X_test2, X_train2, y_train2, l, Distance);
         
         % Compute number of classification errors
-        Error_knn(l,1) = sum(y_test~=y_test_est); % Count the number of errors
+        Error_knn(l,k2) = sum(y_test2~=y_test_est2); % Count the number of errors
      end
-    [val_Min,L_fin]=min(Error_knn);
+   
+    end
+    
+    Error_dt_fin=sum(Error_dt*(CV2.TestSize').^(-1),2);
+    [val_Min,prune_fin]=min(Error_dt_fin);
+    dep_dt(k1,1)=prune_fin;
+    Error_knn_fin=sum(Error_knn*(CV2.TestSize').^(-1),2);
+    [val_Min,L_fin]=min(Error_knn_fin);
     neigh_knn(k1,1)=L_fin;
     
-    %performance
+      % Performance DT 
+   T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_stm, ...
+        'prune', 'on', ...
+        'minparent', 10);   
+      
+      
+    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
+    perf_dt(k1,2) = (sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
+    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
+    
+   
+    %performance KNN
+     y_test_est = knnclassify(X_test, X_train, y_train, L_fin, Distance);
+    
     perf_knn(k1,1) = sum(y_test~=y_test_est)/length(y_test); % Error
     perf_knn(k1,2) = (sum(y_test==y_test_est & y_test==0)/sum(y_test_est==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test_est==1)+...
@@ -516,7 +619,7 @@ for k1 = 1:K1 % For each crossvalidation fold
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
     
-%%Largest Class
+    %%Largest Class
     
     [larg_class,nb]=mode(y_train);
     y_test_est=larg_class*ones(CV1.TestSize(1,k1),1);
@@ -525,24 +628,27 @@ for k1 = 1:K1 % For each crossvalidation fold
     perf_largest_cl(k1,3) = (sum(y_test==y_test_est & y_test==0)/sum(y_test==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
+    
+    
+    
 end
+
 
 
 figure(3)
 subplot(1,3,1)
-plot(1:K1,perf_bayes(:,1),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,1),'r');
 hold on;
-plot(1:K1,perf_dt(:,1),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,1),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,1),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,1),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,1),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,1),'y');
 hold off;
-
 
 legend('Naive Bayes', 'DT','KNN','Largest Class')
 xlabel('Folds')
@@ -551,47 +657,45 @@ title('Error')
 
 
 subplot(1,3,2)
-plot(1:K1,perf_bayes(:,2),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,2),'r');
 hold on;
-plot(1:K1,perf_dt(:,2),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,2),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,2),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,2),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,2),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,2),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
+
 xlabel('Folds')
 ylabel('Precision')
 title('Precision')
 
 
 subplot(1,3,3)
-plot(1:K1,perf_bayes(:,3),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,3),'r');
 hold on;
-plot(1:K1,perf_dt(:,3),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,3),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,3),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,3),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,3),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,3),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
+
 xlabel('Folds')
 ylabel('Recall')
 title('Recall')
-
-
 %% STFWI - Method comparison
 
 
@@ -599,10 +703,12 @@ X= STFWI;
 
 
 % K-fold crossvalidation out loop
-K1 = 10;
+K1 = 5;
 CV1 = cvpartition(y, 'Kfold', K1);
+
+
 % K-fold crossvalidation inner loop
-    K2 = 10;
+K2 = 20;
 
 % Parameters for naive Bayes classifier
 Distribution = 'mvmn';
@@ -614,7 +720,7 @@ prune=1:prune_max;
 
 % Parameters for K neighbor classifier
 Distance = 'euclidean'; % Distance measure
-Lmax = 40; % Maximum number of neighbors
+Lmax = 20; % Maximum number of neighbors
 
 % Variable for performance errors
 
@@ -646,8 +752,9 @@ for k1 = 1:K1 % For each crossvalidation fold
     
     % Predict model on test data    
     y_test_est = predict(NB, X_test);
-   
-   
+    
+  
+    
     % Performance
     perf_bayes(k1,1) = sum(y_test~=y_test_est)/length(y_test); % Error
     perf_bayes(k1,2) =(sum(y_test==y_test_est & y_test==0)/sum(y_test_est==0)+...
@@ -657,9 +764,22 @@ for k1 = 1:K1 % For each crossvalidation fold
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
     
+    %INNER LOOP 
+     Error_dt=nan(prune_max,K2);
+     Error_knn=nan(Lmax,K2);
+     
+    CV2 = cvpartition(y_train, 'Kfold', K2);
+    for k2=1:K2
+    
+    % Extract training and test set
+    X_train2 = X(CV2.training(k2), :);
+    y_train2 = y(CV2.training(k2));
+    X_test2 = X(CV2.test(k2), :);
+    y_test2 = y(CV2.test(k2));
+    
     %%DECISION TREE
-    Error_dt=nan(prune_max,1);
-    T = classregtree(X_train, classNames(y_train+1), ...
+    
+    T = classregtree(X_train2, classNames(y_train2+1), ...
         'method', 'classification', ...
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
@@ -669,36 +789,52 @@ for k1 = 1:K1 % For each crossvalidation fold
 
     % Compute classification error
     for n = 1:prune_max % For each pruning level
-        Error_dt(n,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune(n))));
+        Error_dt(n,k2) = sum(~strcmp(classNames(y_test2+1), eval(T, X_test2, prune(n))));
     end    
-    [val_Min,prune_fin]=min(Error_dt);
-    dep_dt(k1,1)=prune_fin;
-  
-        
     
-      % Performance
-    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
-    perf_dt(k1,2) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
-    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
     
-    %KNN 
-    Error_knn=nan(Lmax,1);
+     %KNN 
+    
      for l = 1:Lmax % For each number of neighbors
         
         % Use knnclassify to find the l nearest neighbors
-        y_test_est = knnclassify(X_test, X_train, y_train, l, Distance);
+        y_test_est2 = knnclassify(X_test2, X_train2, y_train2, l, Distance);
         
         % Compute number of classification errors
-        Error_knn(l,1) = sum(y_test~=y_test_est); % Count the number of errors
+        Error_knn(l,k2) = sum(y_test2~=y_test_est2); % Count the number of errors
      end
-    [val_Min,L_fin]=min(Error_knn);
+   
+    end
+    
+    Error_dt_fin=sum(Error_dt*(CV2.TestSize').^(-1),2);
+    [val_Min,prune_fin]=min(Error_dt_fin);
+    dep_dt(k1,1)=prune_fin;
+    Error_knn_fin=sum(Error_knn*(CV2.TestSize').^(-1),2);
+    [val_Min,L_fin]=min(Error_knn_fin);
     neigh_knn(k1,1)=L_fin;
     
-    %performance
+      % Performance DT 
+   T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_stfwi, ...
+        'prune', 'on', ...
+        'minparent', 10);   
+      
+      
+    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
+    perf_dt(k1,2) = (sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
+    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
+    
+   
+    %performance KNN
+     y_test_est = knnclassify(X_test, X_train, y_train, L_fin, Distance);
+    
     perf_knn(k1,1) = sum(y_test~=y_test_est)/length(y_test); % Error
     perf_knn(k1,2) = (sum(y_test==y_test_est & y_test==0)/sum(y_test_est==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test_est==1)+...
@@ -707,7 +843,7 @@ for k1 = 1:K1 % For each crossvalidation fold
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
     
-%%Largest Class
+    %%Largest Class
     
     [larg_class,nb]=mode(y_train);
     y_test_est=larg_class*ones(CV1.TestSize(1,k1),1);
@@ -716,24 +852,27 @@ for k1 = 1:K1 % For each crossvalidation fold
     perf_largest_cl(k1,3) = (sum(y_test==y_test_est & y_test==0)/sum(y_test==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
+    
+    
+    
 end
+
 
 
 figure(4)
 subplot(1,3,1)
-plot(1:K1,perf_bayes(:,1),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,1),'r');
 hold on;
-plot(1:K1,perf_dt(:,1),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,1),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,1),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,1),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,1),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,1),'y');
 hold off;
-
 
 legend('Naive Bayes', 'DT','KNN','Largest Class')
 xlabel('Folds')
@@ -742,59 +881,59 @@ title('Error')
 
 
 subplot(1,3,2)
-plot(1:K1,perf_bayes(:,2),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,2),'r');
 hold on;
-plot(1:K1,perf_dt(:,2),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,2),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,2),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,2),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,2),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,2),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
 xlabel('Folds')
 ylabel('Precision')
 title('Precision')
 
 
 subplot(1,3,3)
-plot(1:K1,perf_bayes(:,3),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,3),'r');
 hold on;
-plot(1:K1,perf_dt(:,3),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,3),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,3),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,3),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,3),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,3),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
 xlabel('Folds')
 ylabel('Recall')
 title('Recall')
 
 
-
 %% MET - Method comparison
+
 
 
 X= MET;
 
 
 % K-fold crossvalidation out loop
-K1 = 10;
+K1 = 5;
 CV1 = cvpartition(y, 'Kfold', K1);
+
+
 % K-fold crossvalidation inner loop
-    K2 = 10;
+K2 = 20;
 
 % Parameters for naive Bayes classifier
 Distribution = 'mvmn';
@@ -806,7 +945,7 @@ prune=1:prune_max;
 
 % Parameters for K neighbor classifier
 Distance = 'euclidean'; % Distance measure
-Lmax = 40; % Maximum number of neighbors
+Lmax = 20; % Maximum number of neighbors
 
 % Variable for performance errors
 
@@ -838,8 +977,9 @@ for k1 = 1:K1 % For each crossvalidation fold
     
     % Predict model on test data    
     y_test_est = predict(NB, X_test);
-   
-   
+    
+  
+    
     % Performance
     perf_bayes(k1,1) = sum(y_test~=y_test_est)/length(y_test); % Error
     perf_bayes(k1,2) =(sum(y_test==y_test_est & y_test==0)/sum(y_test_est==0)+...
@@ -849,9 +989,22 @@ for k1 = 1:K1 % For each crossvalidation fold
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
     
+    %INNER LOOP 
+     Error_dt=nan(prune_max,K2);
+     Error_knn=nan(Lmax,K2);
+     
+    CV2 = cvpartition(y_train, 'Kfold', K2);
+    for k2=1:K2
+    
+    % Extract training and test set
+    X_train2 = X(CV2.training(k2), :);
+    y_train2 = y(CV2.training(k2));
+    X_test2 = X(CV2.test(k2), :);
+    y_test2 = y(CV2.test(k2));
+    
     %%DECISION TREE
-    Error_dt=nan(prune_max,1);
-    T = classregtree(X_train, classNames(y_train+1), ...
+    
+    T = classregtree(X_train2, classNames(y_train2+1), ...
         'method', 'classification', ...
         'splitcriterion', 'gdi', ...
         'categorical', [], ...
@@ -861,36 +1014,52 @@ for k1 = 1:K1 % For each crossvalidation fold
 
     % Compute classification error
     for n = 1:prune_max % For each pruning level
-        Error_dt(n,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune(n))));
+        Error_dt(n,k2) = sum(~strcmp(classNames(y_test2+1), eval(T, X_test2, prune(n))));
     end    
-    [val_Min,prune_fin]=min(Error_dt);
-    dep_dt(k1,1)=prune_fin;
-  
-        
     
-      % Performance
-    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
-    perf_dt(k1,2) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
-    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
-        sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
     
-    %KNN 
-    Error_knn=nan(Lmax,1);
+     %KNN 
+    
      for l = 1:Lmax % For each number of neighbors
         
         % Use knnclassify to find the l nearest neighbors
-        y_test_est = knnclassify(X_test, X_train, y_train, l, Distance);
+        y_test_est2 = knnclassify(X_test2, X_train2, y_train2, l, Distance);
         
         % Compute number of classification errors
-        Error_knn(l,1) = sum(y_test~=y_test_est); % Count the number of errors
+        Error_knn(l,k2) = sum(y_test2~=y_test_est2); % Count the number of errors
      end
-    [val_Min,L_fin]=min(Error_knn);
+   
+    end
+    
+    Error_dt_fin=sum(Error_dt*(CV2.TestSize').^(-1),2);
+    [val_Min,prune_fin]=min(Error_dt_fin);
+    dep_dt(k1,1)=prune_fin;
+    Error_knn_fin=sum(Error_knn*(CV2.TestSize').^(-1),2);
+    [val_Min,L_fin]=min(Error_knn_fin);
     neigh_knn(k1,1)=L_fin;
     
-    %performance
+      % Performance DT 
+   T = classregtree(X_train, classNames(y_train+1), ...
+        'method', 'classification', ...
+        'splitcriterion', 'gdi', ...
+        'categorical', [], ...
+        'names', attributeNames_met, ...
+        'prune', 'on', ...
+        'minparent', 10);   
+      
+      
+    perf_dt(k1,1) = sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)))/length(y_test); % Error
+    perf_dt(k1,2) = (sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test_est==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test_est==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test_est==2))/3; % Precision
+    perf_dt(k1,3) = (sum(~strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==0)/sum(y_test==0)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==1)/sum(y_test==1)+...
+        sum(strcmp(classNames(y_test+1), eval(T, X_test, prune_fin)) & y_test==2)/sum(y_test==2))/3; % Recall
+    
+   
+    %performance KNN
+     y_test_est = knnclassify(X_test, X_train, y_train, L_fin, Distance);
+    
     perf_knn(k1,1) = sum(y_test~=y_test_est)/length(y_test); % Error
     perf_knn(k1,2) = (sum(y_test==y_test_est & y_test==0)/sum(y_test_est==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test_est==1)+...
@@ -899,7 +1068,7 @@ for k1 = 1:K1 % For each crossvalidation fold
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
     
-%%Largest Class
+    %%Largest Class
     
     [larg_class,nb]=mode(y_train);
     y_test_est=larg_class*ones(CV1.TestSize(1,k1),1);
@@ -908,24 +1077,27 @@ for k1 = 1:K1 % For each crossvalidation fold
     perf_largest_cl(k1,3) = (sum(y_test==y_test_est & y_test==0)/sum(y_test==0)+...
         sum(y_test==y_test_est & y_test==1)/sum(y_test==1)+...
         sum(y_test==y_test_est & y_test==2)/sum(y_test==2))/3; % Recall
+    
+    
+    
 end
+
 
 
 figure(5)
 subplot(1,3,1)
-plot(1:K1,perf_bayes(:,1),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,1),'r');
 hold on;
-plot(1:K1,perf_dt(:,1),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,1),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,1),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,1),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,1),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,1),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,1),'y');
 hold off;
-
 
 legend('Naive Bayes', 'DT','KNN','Largest Class')
 xlabel('Folds')
@@ -934,42 +1106,42 @@ title('Error')
 
 
 subplot(1,3,2)
-plot(1:K1,perf_bayes(:,2),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,2),'r');
 hold on;
-plot(1:K1,perf_dt(:,2),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,2),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,2),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,2),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,2),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,2),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,2),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
+
 xlabel('Folds')
 ylabel('Precision')
 title('Precision')
 
 
 subplot(1,3,3)
-plot(1:K1,perf_bayes(:,3),'r.','MarkerSize',12);
+plot(1:K1,perf_bayes(:,3),'r');
 hold on;
-plot(1:K1,perf_dt(:,3),'g.','MarkerSize',12);
+plot(1:K1,perf_dt(:,3),'g');
 str_prec_dt = [num2str(dep_dt)];
 text(1:K1',perf_dt(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_knn(:,3),'b.','MarkerSize',12);
+plot(1:K1,perf_knn(:,3),'b');
 str_prec_dt = [num2str(neigh_knn)];
 text(1:K1',perf_knn(:,3),str_prec_dt,'HorizontalAlignment','left');
 hold on;
-plot(1:K1,perf_largest_cl(:,3),'y.','MarkerSize',12);
+plot(1:K1,perf_largest_cl(:,3),'y');
 hold off;
 
 
-legend('Naive Bayes', 'DT','KNN','Largest Class')
+
 xlabel('Folds')
 ylabel('Recall')
 title('Recall')
