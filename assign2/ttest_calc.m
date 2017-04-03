@@ -25,6 +25,7 @@ X=M2_data;
 K = 10;
 CV = cvpartition(y, 'Kfold', K);
 
+Distance='euclidean';
 % Initialize variables
 Error_knn13 = nan(1,K);
 Error_knn9 = nan(1,K);
@@ -72,7 +73,8 @@ ylabel('Error rate (%)');
 
 disp('Knn13/Knn9')
 [H,P,CI] =ttest(Error_knn13, Error_knn9);
-fprintf('P=%d and CI=%d\n',P,CI)
+P
+CI
 if H 
     disp('Classifiers are significantly different');
 else
@@ -88,7 +90,8 @@ ylabel('Error rate (%)');
 
 disp('KNN13/LC')
 [H,P,CI] =ttest(Error_knn13,Error_lg_class);
-fprintf('P=%d and CI=%d\n',P,CI)
+P
+CI
 if H 
     disp('Classifiers are significantly different');
 else
@@ -103,22 +106,49 @@ ylabel('Error rate (%)');
 
 disp('Knn9 Vs Larger class')
 [H,P,CI] =ttest(Error_knn9,Error_lg_class );
-fprintf('P=%d and CI=%d\n',P,CI)
+P
+CI
 if H    
     disp('Classifiers are significantly different');
 else
     disp('Classifiers are NOT significantly different');
 end
-
 % Knn13/Knn9
-% P=7.698750e-01 and CI=-1.700545e+00
-% P=1.300545e+00 and CI=Classifiers are NOT significantly different
+% 
+% P =
+% 
+%     0.0665
+% 
+% 
+% CI =
+% 
+%    -0.1260    3.1260
+% 
+% Classifiers are NOT significantly different
 % KNN13/LC
-% P=2.537766e-02 and CI=3.710525e-01
-% P=4.428947e+00 and CI=Classifiers are significantly different
+% 
+% P =
+% 
+%     0.0343
+% 
+% 
+% CI =
+% 
+%     0.1840    3.8160
+% 
+% Classifiers are significantly different
 % Knn9 Vs Larger class
-% P=2.288063e-03 and CI=1.201441e+00
-% P=3.998559e+00 and CI=Classifiers are significantly different
+% 
+% P =
+% 
+%     0.6008
+% 
+% 
+% CI =
+% 
+%    -1.5856    2.5856
+% 
+% Classifiers are NOT significantly different
 
 %% FWI Dataset Crossvalidation
 
@@ -127,6 +157,10 @@ X=FWI;
 % Create 10-fold crossvalidation partition for evaluation
 K = 10;
 CV = cvpartition(y, 'Kfold', K);
+
+Distribution = 'mvmn';
+Prior = 'empirical';
+Distance = 'euclidean'; 
 
 % Initialize variables
 Error_dt6 = nan(1,K);
@@ -176,7 +210,7 @@ ylabel('Error rate (%)');
 
 disp('DT6/Knn9')
 [H,P,CI] =ttest(Error_dt6, Error_knn9);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H    
     disp('Classifiers are significantly different');
 else
@@ -192,7 +226,7 @@ ylabel('Error rate (%)');
 
 disp('dt6/LC')
 [H,P,CI] =ttest(Error_dt6, Error_lg_class);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H
     disp('Classifiers are significantly different');
 else
@@ -207,31 +241,31 @@ ylabel('Error rate (%)');
 
 disp('Knn9 Vs Larger class')
 [H,P,CI] =ttest(Error_knn9, Error_lg_class);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H
     disp('Classifiers are significantly different');
     
 else
     disp('Classifiers are NOT significantly different');
 end
-
 % DT6/Knn9
-% P=4.894617e-01 and CI=-1.283622e+00
-% P=2.483622e+00 and CI=Classifiers are NOT significantly different
+% P=0.112506 and CI=[-0.486752:3.886752]
+% Classifiers are NOT significantly different
 % dt6/LC
-% P=1.052681e-01 and CI=-3.587373e-01
-% P=3.158737e+00 and CI=Classifiers are NOT significantly different
+% P=0.088219 and CI=[-0.348290:4.148290]
+% Classifiers are NOT significantly different
 % Knn9 Vs Larger class
-% P=1.678507e-01 and CI=-4.064838e-01
-% P=2.006484e+00 and CI=Classifiers are NOT significantly different
-
-
+% P=0.817275 and CI=[-1.701648:2.101648]
+% Classifiers are NOT significantly different
 %% STM Crossvalidation
 
 X=STM;
 % Create 10-fold crossvalidation partition for evaluation
 K = 10;
 CV = cvpartition(y, 'Kfold', K);
+Distribution = 'mvmn';
+Prior = 'empirical';
+Distance = 'euclidean'; 
 
 % Initialize variables
 Error_bayes = nan(1,K);
@@ -280,7 +314,7 @@ ylabel('Error rate (%)');
 
 disp('bayes/Knn17')
 [H,P,CI] =ttest(Error_bayes, Error_knn17);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H    
     disp('Classifiers are significantly different');
 else
@@ -296,7 +330,7 @@ ylabel('Error rate (%)');
 
 disp('bayes/LC')
 [H,P,CI] =ttest(Error_bayes, Error_lg_class);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H
     disp('Classifiers are significantly different');
 else
@@ -311,7 +345,7 @@ ylabel('Error rate (%)');
 
 disp('Knn17 Vs Larger class')
 [H,P,CI] =ttest(Error_knn17, Error_lg_class);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H
     disp('Classifiers are significantly different');
     
@@ -320,14 +354,14 @@ else
 end
 
 % bayes/Knn17
-% P=3.013436e-05 and CI=4.165680e+00
-% P=7.634320e+00 and CI=Classifiers are significantly different
+% P=0.001510 and CI=[3.076366:9.323634]
+% Classifiers are significantly different
 % bayes/LC
-% P=2.116068e-05 and CI=5.247370e+00
-% P=9.352630e+00 and CI=Classifiers are significantly different
+% P=0.000271 and CI=[4.617916:10.582084]
+% Classifiers are significantly different
 % Knn17 Vs Larger class
-% P=3.932212e-02 and CI=8.526474e-02
-% P=2.714735e+00 and CI=Classifiers are significantly different
+% P=0.088590 and CI=[-0.258915:3.058915]
+% Classifiers are NOT significantly different
 
 %% STFWI Crossvalidation
 
@@ -335,6 +369,10 @@ X=STFWI;
 % Create 10-fold crossvalidation partition for evaluation
 K = 10;
 CV = cvpartition(y, 'Kfold', K);
+Distribution = 'mvmn';
+Prior = 'empirical';
+Distance = 'euclidean'; 
+
 
 % Initialize variables
 Error_dt7 = nan(1,K);
@@ -384,7 +422,7 @@ ylabel('Error rate (%)');
 
 disp('DT7/Knn11')
 [H,P,CI] =ttest(Error_dt7, Error_knn11);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H    
     disp('Classifiers are significantly different');
 else
@@ -400,7 +438,7 @@ ylabel('Error rate (%)');
 
 disp('dt7/LC')
 [H,P,CI] =ttest(Error_dt7, Error_lg_class);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H
     disp('Classifiers are significantly different');
 else
@@ -415,25 +453,23 @@ ylabel('Error rate (%)');
 
 disp('Knn11 Vs Larger class')
 [H,P,CI] =ttest(Error_knn11, Error_lg_class);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H
     disp('Classifiers are significantly different');
     
 else
     disp('Classifiers are NOT significantly different');
 end
-
 % 
 % DT7/Knn11
-% P=1.013783e-01 and CI=-4.317913e-01
-% P=4.031791e+00 and CI=Classifiers are NOT significantly different
+% P=0.014587 and CI=[0.699453:4.900547]
+% Classifiers are significantly different
 % dt7/LC
-% P=2.507092e-02 and CI=3.138876e-01
-% P=3.686112e+00 and CI=Classifiers are significantly different
+% P=0.069829 and CI=[-0.289383:6.089383]
+% Classifiers are NOT significantly different
 % Knn11 Vs Larger class
-% P=8.251722e-01 and CI=-1.789327e+00
-% P=2.189327e+00 and CI=Classifiers are NOT significantly different
-
+% P=0.925336 and CI=[-2.247272:2.447272]
+% Classifiers are NOT significantly different
 
 %% MET Crossvalidation
 
@@ -441,6 +477,10 @@ X=MET;
 % Create 10-fold crossvalidation partition for evaluation
 K = 10;
 CV = cvpartition(y, 'Kfold', K);
+
+Distribution = 'mvmn';
+Prior = 'empirical';
+Distance = 'euclidean'; 
 
 % Initialize variables
 Error_dt9 = nan(1,K);
@@ -490,7 +530,7 @@ ylabel('Error rate (%)');
 
 disp('DT9/Knn20')
 [H,P,CI] =ttest(Error_dt9, Error_knn20);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H    
     disp('Classifiers are significantly different');
 else
@@ -506,7 +546,7 @@ ylabel('Error rate (%)');
 
 disp('dt9/LC')
 [H,P,CI] =ttest(Error_dt9, Error_lg_class);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H
     disp('Classifiers are significantly different');
 else
@@ -521,7 +561,7 @@ ylabel('Error rate (%)');
 
 disp('Knn20 Vs Larger class')
 [H,P,CI] =ttest(Error_knn20, Error_lg_class);
-fprintf('P=%d and CI=%d\n',P,CI)
+fprintf('P=%f and CI=[%f:%f]\n',P,CI(1),CI(2))
 if H
     disp('Classifiers are significantly different');
     
@@ -529,12 +569,12 @@ else
     disp('Classifiers are NOT significantly different');
 end
 
-%DT9/Knn20
-% P=4.625493e-02 and CI=-3.760845e+00
-% P=-3.915515e-02 and CI=Classifiers are significantly different
+% DT9/Knn20
+% P=0.403568 and CI=[-3.222922:1.422922]
+% Classifiers are NOT significantly different
 % dt9/LC
-% P=5.086465e-01 and CI=-9.147353e-01
-% P=1.714735e+00 and CI=Classifiers are NOT significantly different
+% P=0.890531 and CI=[-1.497808:1.697808]
+% Classifiers are NOT significantly different
 % Knn20 Vs Larger class
-% P=7.324325e-03 and CI=-3.809989e+00
-% P=-7.900113e-01 and CI=Classifiers are significantly different
+% P=0.195389 and CI=[-0.617262:2.617262]
+% Classifiers are NOT significantly different
