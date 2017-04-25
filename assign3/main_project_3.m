@@ -6,10 +6,14 @@ clc
 run main_project1.m
 
 %% %%%%%%%%%%%%%%%%%%%%%%% Clustering %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-run remove_outliers_pro2.m
-
+run remove_outliers_pro2.m   %on devrait dès le début clusteriser sur le dataset entier
+%% Normalization 
+zscore(MET);
+zscore(FWI);
+zscore(M2_data);
+zscore(STM);
+zscore(STFWI);
 %% Generate labels
-
 area3= log(M_data(:,end)+1);
 % 2 classes
 
@@ -47,19 +51,23 @@ Kmax=5;
 GMM_k_sel(M2_data,'Full Dataset',Kmax);
 %Read the graphs and select K
 
-K_M2=2;
+K_M2=3;
 [i_M2,X_c_M2,Sigma_c_M2  ] = GMM_perform( K_M2,M2_data,'Full Dataset',y_2,classNames2);
-%% FWI
+%% FWI 
 Kmax=10;
-GMM_k_sel(FWI,'FWI',Kmax);
+GMM_k_sel((FWI),'FWI',Kmax);
 
 %Read the graphs and select K
-K_FWI=3;
-[i_FWI,X_c_FWI,Sigma_c_FWI  ] = GMM_perform( K_FWI,FWI,'FWI',y_3,classNames3);
+K_FWI=9;
+[i_FWI,X_c_FWI,Sigma_c_FWI] = GMM_perform( K_FWI,FWI,'FWI',y_3,classNames3);
+
+% We have got a result
 %% STFWI
 Kmax=5;
 GMM_k_sel(STFWI,'STFWI',Kmax);
 %Read the graphs and select K
+%OR
+K_STFWI=size(X_c,2);
 K_STFWI=2;
 [i_STFWI,X_c_STFWI,Sigma_c_STFWI  ] = GMM_perform( K_STFWI,STFWI,'STFWI',y_2,classNames2);
 
@@ -73,10 +81,10 @@ K_STM=2;
 
 
 %% MET
-Kmax=5;
+Kmax=8;
 GMM_k_sel(MET,'MET',Kmax);
 %Read the graphs and select K
-K_MET=2;
+K_MET=3;
 [i_MET,X_c_MET,Sigma_c_MET ] = GMM_perform( K_MET,MET,'MET',y_2,classNames2);
 %% Hierarchical Clustering
 %% Full Dataset
@@ -161,5 +169,32 @@ knn_ard(M2_data,K,'Full Dataset' );
 
 
 %% %%%%%%%%%%%%%%%%%%%%% Association mining %%%%%%%%%%%%%%%%%%%%%%%%%
+%Méli... Je trouve que c'est un endroit approprié pour te déclarer ma
+%flamme... Qu'elle puisse brûler à jamais
 
+%% MET: work du tonnerre !
+X=MET;
+attributeNames=attributeNames_met;
+sup = 30;
+conf= 60;
+[asso_met,freq_met]=a_priori(X,attributeNames,sup,conf);
+%% Full dataset: out of time
+X=M2_data;
+attributeNames=attributeNames_M2;
+sup = 30;
+conf= 60;
+[asso_M,freq_M]=a_priori(X,attributeNames,sup,conf);
+
+%% STM
+X=STM;
+attributeNames=attributeNames_stm;
+sup = 30;
+conf= 60;
+[asso_stm,freq_stm]=a_priori(X,attributeNames,sup,conf);
+%% FWI
+X=FWI;
+attributeNames=attributeNames_fwi;
+sup = 30;
+conf= 60;
+[asso_fwi,freq_fwi]=a_priori(X,attributeNames,sup,conf);
 
