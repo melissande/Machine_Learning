@@ -6,7 +6,7 @@ clc
 run main_project1.m
 
 %% %%%%%%%%%%%%%%%%%%%%%%% Clustering %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-run remove_outliers_pro2.m   %on devrait dès le début clusteriser sur le dataset entier
+run remove_outliers_pro2.m   %on devrait dÃ¨s le dÃ©but clusteriser sur le dataset entier
 %% Normalization 
 zscore(MET);
 zscore(FWI);
@@ -169,32 +169,51 @@ knn_ard(M2_data,K,'Full Dataset' );
 
 
 %% %%%%%%%%%%%%%%%%%%%%% Association mining %%%%%%%%%%%%%%%%%%%%%%%%%
-%Méli... Je trouve que c'est un endroit approprié pour te déclarer ma
-%flamme... Qu'elle puisse brûler à jamais
+%MÃ©li... Je trouve que c'est un endroit appropriÃ© pour te dÃ©clarer ma
+%flamme... Qu'elle puisse brÃ»ler Ã  jamais  
 
+%In order to do an association mining with the full dataset, first MET and
+%FWI have to be binarized and then associated with ST, it is not possible
+%to use binarize.m if there are attributes already binary apparently.
 %% MET: work du tonnerre !
 X=MET;
 attributeNames=attributeNames_met;
 sup = 30;
 conf= 60;
-[asso_met,freq_met]=a_priori(X,attributeNames,sup,conf);
-%% Full dataset: out of time
-X=M2_data;
-attributeNames=attributeNames_M2;
+%That's why I take back the binary matrix generated in order to reuse it
+[asso_met,freq_met,X_bin_met]=a_priori(X,attributeNames,sup,conf);
+%% MET+area !
+X=[MET,area1];
+attributeNames=[attributeNames_met,'area'];
 sup = 30;
 conf= 60;
-[asso_M,freq_M]=a_priori(X,attributeNames,sup,conf);
-
-%% STM
-X=STM;
-attributeNames=attributeNames_stm;
-sup = 30;
-conf= 60;
-[asso_stm,freq_stm]=a_priori(X,attributeNames,sup,conf);
+[asso_met_ar,freq_met_ar,X_bin_met_ar]=a_priori(X,attributeNames,sup,conf);
 %% FWI
 X=FWI;
 attributeNames=attributeNames_fwi;
 sup = 30;
 conf= 60;
-[asso_fwi,freq_fwi]=a_priori(X,attributeNames,sup,conf);
+[asso_fwi,freq_fwi,X_bin_fwi]=a_priori(X,attributeNames,sup,conf);
+%% Full dataset with area: works baby
+M_binary=[X_bin,Y_bin,day_bin,month_bin,X_bin_fwi,X_bin_met_ar];
+sup = 48;
+conf= 60;
+writeAprioriFile(M_binary,'m_full_binary.txt');
+
+%Apriori is used here 
+[asso_M,freq_M]=apriori('m_full_binary.txt',sup,conf);
+%item 52: Few rain should be erased because is polluting the results, being
+%always here, always frequent and confident with the rest.
+%Otherwise 38<->46; 46<->49; 44<->38
+
+
+%% STM: better without FWIs which are difficult to interpret
+STM_binary=[X_bin,Y_bin,day_bin,month_bin,X_bin_met_ar];
+sup = 50;
+conf= 70;
+writeAprioriFile(STM_binary,'stm_binary.txt');
+
+%Apriori is used here 
+[asso_STM,freq_STM]=apriori('stm_binary.txt',sup,conf);
+
 
